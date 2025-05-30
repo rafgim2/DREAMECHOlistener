@@ -5,38 +5,38 @@
   <title>DreamEcho - Oyente</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.39/Tone.min.js"></script>
   <style>
-  body {
-    font-family: sans-serif;
-    padding: 1em;
-    text-align: center;
-  }
+    body {
+      font-family: sans-serif;
+      padding: 1em;
+      text-align: center;
+    }
 
-  h1 {
-    font-size: 3em;
-    margin-bottom: 0.2em;
-  }
+    h1 {
+      font-size: 3em;
+      margin-bottom: 0.2em;
+    }
 
-  #recuentoOyentes {
-    font-size: 1.2em;
-    margin-bottom: 1em;
-    color: #555;
-  }
+    #recuentoOyentes {
+      font-size: 1.2em;
+      margin-bottom: 0.5em;
+      color: #555;
+    }
 
-  button {
-    margin: 0.5em;
-    font-size: 2em;
-    padding: 1em 2em;
-    cursor: pointer;
-  }
+    button {
+      margin: 0.5em;
+      font-size: 2em;
+      padding: 1em 2em;
+      cursor: pointer;
+    }
 
-  #status {
-    margin-bottom: 1em;
-    font-size: 1.2em;
-  }
+    #status {
+      margin-bottom: 1em;
+      font-size: 1.2em;
+    }
 
-  #midiSelectContainer {
-    margin-top: 1em;
-  }
+    #midiSelectContainer {
+      margin-top: 1em;
+    }
   </style>
 </head>
 <body>
@@ -65,6 +65,8 @@
     const notasActivas = new Set();
     const notasSostenidas = new Set();
 
+    let primeraEstadisticaMostrada = false;
+
     ws.onopen = () => {
       console.log("WebSocket conectado.");
       statusEl.textContent = "Conectado al servidor, esperando tu elección…";
@@ -77,11 +79,15 @@
       const message = JSON.parse(text);
 
       if (message.type === "stats") {
-        queuePos = message.clients;
-        queueLatency = 50 + 5 * Math.sqrt(queuePos);
-        statusEl.textContent =
-          `Posición en cola: ${queuePos} → latencia = ${Math.round(queueLatency)} ms`;
         oyentesEl.textContent = `Oyentes conectados: ${message.clients}`;
+
+        if (!primeraEstadisticaMostrada) {
+          queuePos = message.clients;
+          queueLatency = 50 + 5 * Math.sqrt(queuePos);
+          statusEl.textContent =
+            `Posición en cola: ${queuePos} → latencia = ${Math.round(queueLatency)} ms`;
+          primeraEstadisticaMostrada = true;
+        }
         return;
       }
 
@@ -93,10 +99,7 @@
         if (!baseTime) baseTime = performance.now() - eventTime;
 
         const extra = (modo === 'virtual') ? queueLatency : 0;
-        const delay = Math.max(
-          0,
-          eventTime + baseTime - performance.now() + extra
-        );
+        const delay = Math.max(0, eventTime + baseTime - performance.now() + extra);
         const toneTime = "+" + (delay / 1000);
 
         if (modo === "midi" && output) {
