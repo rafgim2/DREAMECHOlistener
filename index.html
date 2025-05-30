@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <title>DreamEcho - Oyente</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.39/Tone.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/midi-writer-js@2.0.5/build/MidiWriter.min.js"></script>
   <style>
     body {
       font-family: sans-serif;
@@ -34,12 +35,28 @@
 
     #grabacionControles {
       margin-top: 2em;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5em;
     }
 
     #grabacionesSelect {
       font-size: 1em;
       padding: 0.5em;
       margin: 0.5em;
+    }
+
+    button.grabando {
+      animation: parpadeo 1s infinite;
+      background-color: red;
+      color: white;
+    }
+
+    @keyframes parpadeo {
+      0% { opacity: 1; }
+      50% { opacity: 0.3; }
+      100% { opacity: 1; }
     }
   </style>
 </head>
@@ -52,20 +69,23 @@
 
   <div id="midiSelectContainer"></div>
 
-  <!-- Controles de grabación -->
   <div id="grabacionControles">
-    <button onclick="iniciarGrabacion()">⏺️ Grabar</button>
+    <button id="btnGrabar" onclick="iniciarGrabacion()">⏺️ Grabar</button>
     <button onclick="detenerGrabacion()">⏹️ Detener</button>
     <select id="grabacionesSelect">
       <option value="">-- Elige una grabación --</option>
     </select>
     <button onclick="reproducirGrabacion()">▶️ Reproducir</button>
+    <button onclick="borrarGrabacion()">🗑️ Borrar</button>
+    <button onclick="renombrarGrabacion()">✏️ Renombrar</button>
+    <button onclick="descargarGrabacion()">💾 Descargar .mid</button>
   </div>
 
   <script>
     const statusEl = document.getElementById("status");
     const midiSelectContainer = document.getElementById("midiSelectContainer");
     const grabacionesSelect = document.getElementById("grabacionesSelect");
+    const btnGrabar = document.getElementById("btnGrabar");
 
     const ws = new WebSocket("wss://dreamecho.onrender.com");
     let output = null;
@@ -78,22 +98,15 @@
     const notasActivas = new Set();
     const notasSostenidas = new Set();
 
-    // Grabación
     let grabando = false;
     let grabacionActual = [];
     let grabaciones = [];
 
-    // Cargar grabaciones del almacenamiento local
     window.onload = () => {
       const guardadas = localStorage.getItem("dreamEchoGrabaciones");
       if (guardadas) {
         grabaciones = JSON.parse(guardadas);
-        grabaciones.forEach((_, i) => {
-          const option = document.createElement("option");
-          option.value = i;
-          option.text = `Grabación ${i + 1}`;
-          grabacionesSelect.appendChild(option);
-        });
+        actualizarListaGrabaciones();
       }
     };
 
@@ -101,24 +114,36 @@
       localStorage.setItem("dreamEchoGrabaciones", JSON.stringify(grabaciones));
     }
 
+    function actualizarListaGrabaciones() {
+      grabacionesSelect.innerHTML = `<option value="">-- Elige una grabación --</option>`;
+      grabaciones.forEach((g, i) => {
+        const option = document.createElement("option");
+        option.value = i;
+        option.text = g.nombre || `Grabación ${i + 1}`;
+        grabacionesSelect.appendChild(option);
+      });
+    }
+
     function iniciarGrabacion() {
       grabando = true;
       grabacionActual = [];
       baseTime = null;
       statusEl.innerText = "Grabando… toca algo desde el piano.";
+      btnGrabar.classList.add("grabando");
     }
 
     function detenerGrabacion() {
       grabando = false;
+      btnGrabar.classList.remove("grabando");
       if (grabacionActual.length > 0) {
-        grabaciones.push(grabacionActual);
-        const nombre = `Grabación ${grabaciones.length}`;
-        const option = document.createElement("option");
-        option.value = grabaciones.length - 1;
-        option.text = nombre;
-        grabacionesSelect.appendChild(option);
+        const nueva = {
+          nombre: `Grabación ${grabaciones.length + 1}`,
+          eventos: grabacionActual
+        };
+        grabaciones.push(nueva);
         guardarEnLocalStorage();
-        statusEl.innerText = `${nombre} guardada.`;
+        actualizarListaGrabaciones();
+        statusEl.innerText = `${nueva.nombre} guardada.`;
       } else {
         statusEl.innerText = "Nada grabado.";
       }
@@ -127,8 +152,8 @@
     function reproducirGrabacion() {
       const index = grabacionesSelect.value;
       if (index === "") return;
-      const eventos = grabaciones[index];
-      const start = performance.now();
+      const grabacion = grabaciones[index];
+      const eventos = grabacion.eventos;
       for (let ev of eventos) {
         const delay = Math.max(0, ev.time - eventos[0].time);
         setTimeout(() => {
@@ -137,11 +162,73 @@
           }));
         }, delay);
       }
-      statusEl.innerText = `Reproduciendo Grabación ${parseInt(index) + 1}`;
+      statusEl.innerText = `Reproduciendo: ${grabacion.nombre}`;
+    }
+
+    function borrarGrabacion() {
+      const index = grabacionesSelect.value;
+      if (index === "") return;
+      const nombre = grabaciones[index].nombre;
+      if (!confirm(`¿Borrar "${nombre}"? Esta acción no se puede deshacer.`)) return;
+      grabaciones.splice(index, 1);
+      guardarEnLocalStorage();
+      actualizarListaGrabaciones();
+      statusEl.innerText = `"${nombre}" borrada.`;
+    }
+
+    function renombrarGrabacion() {
+      const index = grabacionesSelect.value;
+      if (index === "") return;
+      const nuevoNombre = prompt("Nuevo nombre:", grabaciones[index].nombre);
+      if (nuevoNombre) {
+        grabaciones[index].nombre = nuevoNombre;
+        guardarEnLocalStorage();
+        actualizarListaGrabaciones();
+        statusEl.innerText = `Grabación renombrada a "${nuevoNombre}".`;
+      }
+    }
+
+    function descargarGrabacion() {
+      const index = grabacionesSelect.value;
+      if (index === "") return;
+
+      const grabacion = grabaciones[index];
+      const eventos = grabacion.eventos;
+      if (!eventos.length) return;
+
+      const track = new MidiWriter.Track();
+      track.setTempo(90);
+      track.addEvent(new MidiWriter.ProgramChangeEvent({ instrument: 1 }));
+
+      let startTime = eventos[0].time;
+      eventos.forEach(ev => {
+        const [status, note, velocity] = ev.data;
+        const delta = Math.round((ev.time - startTime) / 10); // ticks ~ ms/10
+        if ((status & 0xf0) === 0x90 && velocity > 0) {
+          track.addEvent(new MidiWriter.NoteEvent({
+            pitch: [MidiWriter.Utils.midiNumberToNoteName(note)],
+            duration: 'T' + 120, // duración fija
+            startTick: delta,
+            velocity: velocity / 127
+          }));
+        }
+      });
+
+      const write = new MidiWriter.Writer(track);
+      const blob = new Blob([write.buildFile()], { type: 'audio/midi' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = grabacion.nombre.replace(/\s+/g, "_") + ".mid";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      statusEl.innerText = `Descargando ${grabacion.nombre}.mid`;
     }
 
     ws.onopen = () => {
-      console.log("WebSocket conectado.");
       statusEl.textContent = "Conectado al servidor, esperando tu elección…";
     };
 
@@ -170,7 +257,6 @@
         const delay = Math.max(0, eventTime + baseTime - performance.now() + extra);
         const toneTime = "+" + (delay / 1000);
 
-        // Guardar si está grabando
         if (grabando) {
           grabacionActual.push({
             data: message.data,
