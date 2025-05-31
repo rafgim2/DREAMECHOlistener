@@ -63,6 +63,11 @@
       cursor: pointer;
       margin-left: 0.5em;
     }
+
+    /* Clase para los mensajes propios en azul */
+    .chat-mensaje-propio {
+      color: blue;
+    }
   </style>
 </head>
 <body>
@@ -103,10 +108,16 @@
     // Nombre de usuario chat
     const username = prompt("¿Cómo quieres que te vean en el chat?", "Oyente") || "Oyente";
 
+    // Función ajustada: si el autor del mensaje es el propio oyente, le añadimos la clase para color azul
     function appendChat(user, text) {
       const msg = document.createElement("div");
       const time = new Date().toLocaleTimeString();
       msg.innerHTML = `<small>[${time}]</small> <strong>${user}:</strong> ${text}`;
+
+      if (user === username) {
+        msg.classList.add("chat-mensaje-propio");
+      }
+
       chatLog.appendChild(msg);
       chatLog.scrollTop = chatLog.scrollHeight;
     }
@@ -261,4 +272,3 @@
   </script>
 </body>
 </html>
-
