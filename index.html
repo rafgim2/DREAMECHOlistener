@@ -72,6 +72,8 @@
 </head>
 <body>
   <h1>DreamEcho - Oyente</h1>
+  <p><a href="https://www.youtube.com/@rafgim" target="_blank">© By Rafael Gimeno</a></p>
+
   <p id="recuentoOyentes">Oyentes conectados: --</p>
   <p id="status">Esperando conexión…</p>
 
@@ -231,7 +233,7 @@
             const chosen = outputs.find(o => o.id === e.target.value);
             if (chosen) {
               output = chosen;
-              statusEl.innerText = `Salida MIDI seleccionada: ${chosen.name}`;
+              statusEl.innerText = `Salida MIDI seleccionada: ${chosen.y}`;
             } else {
               statusEl.innerText = "No se ha seleccionado salida MIDI.";
               output = null;
