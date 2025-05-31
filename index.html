@@ -9,6 +9,8 @@
       font-family: sans-serif;
       padding: 1em;
       text-align: center;
+      position: relative; /* Para posicionar ripples */
+      overflow: hidden;   /* Para que las ondas no causen scroll */
     }
 
     h1 {
@@ -68,6 +70,23 @@
     .chat-mensaje-propio {
       color: blue;
     }
+
+    /* ========= RIPPLE EFFECT ========= */
+    .ripple {
+      position: absolute;
+      border-radius: 50%;
+      background-color: rgba(0, 150, 255, 0.3);
+      transform: scale(0);
+      pointer-events: none;
+      animation: rippleAnim 0.8s ease-out forwards;
+    }
+    @keyframes rippleAnim {
+      to {
+        transform: scale(15);
+        opacity: 0;
+      }
+    }
+    /* ================================== */
   </style>
 </head>
 <body>
@@ -90,6 +109,27 @@
   </div>
 
   <script>
+    // ======================
+    // FUNCIONES DE RIPPLE
+    // ======================
+    function createRandomRipple() {
+      const size = 20; // Tamaño inicial en px
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const x = Math.random() * width;
+      const y = Math.random() * height;
+      const circle = document.createElement("div");
+      circle.classList.add("ripple");
+      circle.style.width = `${size}px`;
+      circle.style.height = `${size}px`;
+      circle.style.left = `${x - size / 2}px`;
+      circle.style.top = `${y - size / 2}px`;
+      document.body.appendChild(circle);
+      setTimeout(() => {
+        circle.remove();
+      }, 800);
+    }
+
     // Elementos
     const statusEl      = document.getElementById("status");
     const oyentesEl     = document.getElementById("recuentoOyentes");
@@ -166,6 +206,13 @@
         const command = st & 0xf0;
         const eventTime = msg.time;
         if (!baseTime) baseTime = performance.now() - eventTime;
+
+        // ←←← SOLO SI ES UN NOTE-ON (0x90 y velocity > 0), HACER RIPPLE ←←←
+        if (command === 0x90 && velocity > 0) {
+          createRandomRipple();
+        }
+        // ←←← FIN DE RIPPLE ←←←
+
         const extra = modo === "virtual" ? queueLatency : 0;
         const delay = Math.max(
           0,
@@ -233,7 +280,7 @@
             const chosen = outputs.find(o => o.id === e.target.value);
             if (chosen) {
               output = chosen;
-              statusEl.innerText = `Salida MIDI seleccionada: ${chosen.y}`;
+              statusEl.innerText = `Salida MIDI seleccionada: ${chosen.name}`;
             } else {
               statusEl.innerText = "No se ha seleccionado salida MIDI.";
               output = null;
