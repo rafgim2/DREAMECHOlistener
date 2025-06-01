@@ -119,20 +119,19 @@
      * - fuerte (loud)   : velocity > 80    → color roja
      */
     function createColoredRipple(velocity) {
-      const size = 20; // Tamaño inicial en px
+      const size = 20;
       const width = window.innerWidth;
       const height = window.innerHeight;
       const x = Math.random() * width;
       const y = Math.random() * height;
 
-      // Determinar color según velocity
       let color;
       if (velocity <= 63) {
-        color = 'rgba(0, 200, 0, 0.3)';    // Verde suave para piano
+        color = 'rgba(0, 200, 0, 0.3)';
       } else if (velocity <= 80) {
-        color = 'rgba(0, 0, 200, 0.3)';    // Azul suave para intensidad media
+        color = 'rgba(0, 0, 200, 0.3)';
       } else {
-        color = 'rgba(200, 0, 0, 0.3)';    // Rojo suave para fuerte (umbral reducido)
+        color = 'rgba(200, 0, 0, 0.3)';
       }
 
       const circle = document.createElement("div");
@@ -144,42 +143,55 @@
       circle.style.backgroundColor = color;
       document.body.appendChild(circle);
 
-      // Eliminar el elemento después de que termine la animación (0.8s)
       setTimeout(() => {
         circle.remove();
       }, 800);
     }
 
-    // Elementos
-    const statusEl      = document.getElementById("status");
-    const oyentesEl     = document.getElementById("recuentoOyentes");
+    // ======================
+    // ELEMENTOS DEL DOM
+    // ======================
+    const statusEl            = document.getElementById("status");
+    const oyentesEl           = document.getElementById("recuentoOyentes");
     const midiSelectContainer = document.getElementById("midiSelectContainer");
-    const chatLog       = document.getElementById("chatLog");
-    const chatInput     = document.getElementById("chatInput");
-    const sendChatBtn   = document.getElementById("sendChatBtn");
+    const chatLog             = document.getElementById("chatLog");
+    const chatInput           = document.getElementById("chatInput");
+    const sendChatBtn         = document.getElementById("sendChatBtn");
 
-    // WebSocket
+    // ======================
+    // WEBSOCKET
+    // ======================
     const ws = new WebSocket("wss://dreamecho.onrender.com");
 
-    // Variables MIDI
-    let output = null, modo = null, synth = null, pedal = false;
-    let baseTime = null, queuePos = 0, queueLatency = 100;
-    const notasActivas = new Set(), notasSostenidas = new Set();
+    // ======================
+    // VARIABLES MIDI Y VIRTUAL
+    // ======================
+    let output = null;
+    let modo = null;
+    let synth = null;
+    let pedal = false;
+
+    let firstEventTime = null;     // ms (emisor) de la primera nota tras elegir modo
+    let startPlaybackTime = null;  // performance.now() + queueLatency, para MIDI físico
+    let audioStartTime = null;     // Tone.now() + queueLatency, para Virtual
+
+    let queuePos = 0;
+    let queueLatency = 100;
     let primeraEstadisticaMostrada = false;
 
-    // Nombre de usuario chat
+    const notasActivas = new Set();
+    const notasSostenidas = new Set();
+
     const username = prompt("¿Cómo quieres que te vean en el chat?", "Oyente") || "Oyente";
 
-    // Función ajustada: si el autor del mensaje es el propio oyente, le añadimos la clase para color azul
+    // ======================
+    // CHAT
+    // ======================
     function appendChat(user, text) {
       const msg = document.createElement("div");
       const time = new Date().toLocaleTimeString();
-      msg.innerHTML = `<small>[${time}]</small> <strong>${user}:</strong> ${text}`;
-
-      if (user === username) {
-        msg.classList.add("chat-mensaje-propio");
-      }
-
+      msg.innerHTML = `<small>[${time}]</small> <strong>${user}:</strong> ${text>`;
+      if (user === username) msg.classList.add("chat-mensaje-propio");
       chatLog.appendChild(msg);
       chatLog.scrollTop = chatLog.scrollHeight;
     }
@@ -210,7 +222,7 @@
           queuePos = msg.clients;
           queueLatency = 50 + 5 * Math.sqrt(queuePos);
           statusEl.textContent =
-            `Posición en cola: ${queuePos} → latencia = ${Math.round(queueLatency)} ms`;
+            `Posición en cola: ${queuePos} → latencia ≃ ${Math.round(queueLatency)} ms`;
           primeraEstadisticaMostrada = true;
         }
         return;
@@ -222,64 +234,102 @@
       }
 
       if (msg.type === "midi") {
+        // Solo procesamos si el usuario ya eligió un modo
+        if (!modo) return;
+
         const [st, note, velocity] = msg.data;
         const command = st & 0xf0;
         const eventTime = msg.time;
-        if (!baseTime) baseTime = performance.now() - eventTime;
 
-        // ←←← SOLO SI ES UN NOTE-ON (0x90 y velocity > 0), HACER RIPPLE COLOREADA ←←←
-        if (command === 0x90 && velocity > 0) {
-          createColoredRipple(velocity);
-        }
-        // ←←← FIN DE RIPPLE ←←←
-
-        const extra = modo === "virtual" ? queueLatency : 0;
-        const delay = Math.max(
-          0,
-          eventTime + baseTime - performance.now() + extra
-        );
-        const toneTime = "+" + (delay / 1000);
-
-        if (modo === "midi" && output) {
-          return setTimeout(
-            () => output.send(new Uint8Array(msg.data)),
-            delay
-          );
-        }
-
-        if (modo === "virtual" && synth) {
-          const freq = Tone.Frequency(note, "midi").toFrequency();
-          if (command === 0x90 && velocity > 0) {
-            synth.triggerAttack(freq, undefined, velocity / 127);
-            notasActivas.add(freq);
-            notasSostenidas.delete(freq);
-          } else if (command === 0x80 || (command === 0x90 && velocity === 0)) {
-            if (pedal) {
-              notasActivas.delete(freq);
-              notasSostenidas.add(freq);
-            } else {
-              synth.triggerRelease(freq, "+0.2");
-              notasActivas.delete(freq);
-              notasSostenidas.delete(freq);
-            }
-          } else if (st === 176 && note === 64) {
-            pedal = velocity >= 64;
-            if (!pedal) {
-              notasSostenidas.forEach(f => {
-                if (!notasActivas.has(f)) {
-                  synth.triggerRelease(f, "+0.2");
-                  notasSostenidas.delete(f);
-                }
-              });
-            }
+        // ── Si es la primera nota tras seleccionar modo, fijamos las referencias ──
+        if (firstEventTime === null) {
+          firstEventTime = eventTime;
+          if (modo === "virtual") {
+            audioStartTime = Tone.now() + queueLatency / 1000;
+          } else {
+            startPlaybackTime = performance.now() + queueLatency;
           }
         }
+
+        // ── Programamos el mensaje MIDI según modo ──
+        scheduleMidi(msg);
       }
     };
 
+    // ======================
+    // FUNCION PARA PROGRAMAR CADA MENSAJE MIDI
+    // ======================
+    function scheduleMidi(msg) {
+      const [st, note, velocity] = msg.data;
+      const command = st & 0xf0;
+      const eventTime = msg.time;
+
+      const relative = eventTime - firstEventTime;
+      const extra = queueLatency;
+
+      // ── MODO MIDI FÍSICO ──
+      if (modo === "midi" && output) {
+        const delay = Math.max(0, startPlaybackTime + relative - performance.now());
+        setTimeout(() => {
+          output.send(new Uint8Array(msg.data));
+        }, delay);
+      }
+
+      // ── MODO VIRTUAL (Tone.js) ──
+      if (modo === "virtual" && synth) {
+        const freq = Tone.Frequency(note, "midi").toFrequency();
+        const timeSec = audioStartTime + relative / 1000;
+
+        if (command === 0x90 && velocity > 0) {
+          // Normalizar velocity a [0..1]
+          const velNorm = velocity / 127;
+          // Curva cuadrática para que los pianísimos suenen realmente suaves
+          const velScaled = Math.pow(velNorm, 2);
+          synth.triggerAttack(freq, timeSec, velScaled);
+          notasActivas.add(freq);
+          notasSostenidas.delete(freq);
+          createColoredRipple(velocity);
+        } else if (command === 0x80 || (command === 0x90 && velocity === 0)) {
+          // Nota off
+          if (pedal) {
+            notasActivas.delete(freq);
+            notasSostenidas.add(freq);
+          } else {
+            synth.triggerRelease(freq, timeSec);
+            notasActivas.delete(freq);
+            notasSostenidas.delete(freq);
+          }
+        } else if (st === 176 && note === 64) {
+          // Sustain pedal (CC64)
+          const isDown = velocity >= 64;
+          if (isDown) {
+            pedal = true;
+          } else {
+            pedal = false;
+            notasSostenidas.forEach(f => {
+              if (!notasActivas.has(f)) {
+                synth.triggerRelease(f, timeSec);
+                notasSostenidas.delete(f);
+              }
+            });
+          }
+        }
+      }
+    }
+
+    // ======================
+    // MODO MIDI FÍSICO
+    // ======================
     function modoMIDI() {
       modo = "midi";
       statusEl.innerText = "Buscando dispositivos MIDI de salida…";
+      // Reiniciar referencias y estado de pedal
+      firstEventTime = null;
+      startPlaybackTime = null;
+      pedal = false;
+      notasActivas.clear();
+      notasSostenidas.clear();
+
       navigator.requestMIDIAccess().then(midiAccess => {
         const outputs = Array.from(midiAccess.outputs.values());
         if (outputs.length) {
@@ -293,7 +343,7 @@
           outputs.forEach((o, i) => {
             const opt = document.createElement("option");
             opt.value = o.id;
-            opt.text = o.name || `MIDI Dispositivo ${i+1}`;
+            opt.text = o.name || `MIDI Dispositivo ${i + 1}`;
             sel.appendChild(opt);
           });
           sel.addEventListener("change", e => {
@@ -316,24 +366,34 @@
       });
     }
 
+    // ======================
+    // MODO VIRTUAL (Tone.js)
+    // ======================
     async function modoVirtual() {
       modo = "virtual";
       statusEl.innerText = "Cargando piano virtual…";
+      // Reiniciar referencias y estado de pedal
+      firstEventTime = null;
+      audioStartTime = null;
+      pedal = false;
+      notasActivas.clear();
+      notasSostenidas.clear();
+
       await Tone.start();
       synth = new Tone.Sampler({
         urls: {
-          A0: "A0.mp3", C1: "C1.mp3", "D#1":"Ds1.mp3", "F#1":"Fs1.mp3",
-          A1: "A1.mp3", C2: "C2.mp3", "D#2":"Ds2.mp3", "F#2":"Fs2.mp3",
-          A2: "A2.mp3", C3: "C3.mp3", "D#3":"Ds3.mp3", "F#3":"Fs3.mp3",
-          A3: "A3.mp3", C4: "C4.mp3", "D#4":"Ds4.mp3", "F#4":"Fs4.mp3",
-          A4: "A4.mp3", C5: "C5.mp3", "D#5":"Ds5.mp3", "F#5":"Fs5.mp3",
-          A5: "A5.mp3", C6: "C6.mp3", "D#6":"Ds6.mp3", "F#6":"Fs6.mp3",
-          A7: "A7.mp3", C8: "C8.mp3"
+          A0:  "A0.mp3", C1:  "C1.mp3", "D#1":"Ds1.mp3", "F#1":"Fs1.mp3",
+          A1:  "A1.mp3", C2:  "C2.mp3", "D#2":"Ds2.mp3", "F#2":"Fs2.mp3",
+          A2:  "A2.mp3", C3:  "C3.mp3", "D#3":"Ds3.mp3", "F#3":"Fs3.mp3",
+          A3:  "A3.mp3", C4:  "C4.mp3", "D#4":"Ds4.mp3", "F#4":"Fs4.mp3",
+          A4:  "A4.mp3", C5:  "C5.mp3", "D#5":"Ds5.mp3", "F#5":"Fs5.mp3",
+          A5:  "A5.mp3", C6:  "C6.mp3", "D#6":"Ds6.mp3", "F#6":"Fs6.mp3",
+          A7:  "A7.mp3", C8:  "C8.mp3"
         },
         baseUrl: "https://tonejs.github.io/audio/salamander/",
         release: 0.4,
         onload: () => {
-          statusEl.innerText =
+          statusEl.textContent =
             `Modo virtual listo. Posición en cola: ${queuePos} → latencia ≃ ${Math.round(queueLatency)} ms`;
         }
       }).toDestination();
