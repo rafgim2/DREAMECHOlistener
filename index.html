@@ -12,34 +12,28 @@
       position: relative; /* Para posicionar ripples */
       overflow: hidden;   /* Para que las ondas no causen scroll */
     }
-
     h1 {
       font-size: 3em;
       margin-bottom: 0.2em;
     }
-
     #recuentoOyentes {
       font-size: 1.2em;
       margin-bottom: 0.5em;
       color: #555;
     }
-
     button {
       margin: 0.5em;
       font-size: 2em;
       padding: 1em 2em;
       cursor: pointer;
     }
-
     #status {
       margin-bottom: 1em;
       font-size: 1.2em;
     }
-
     #midiSelectContainer {
       margin-top: 1em;
     }
-
     /* Chat */
     #chatLog {
       width: 90%;
@@ -65,12 +59,10 @@
       cursor: pointer;
       margin-left: 0.5em;
     }
-
     /* Clase para los mensajes propios en azul */
     .chat-mensaje-propio {
       color: blue;
     }
-
     /* ========= RIPPLE EFFECT ========= */
     .ripple {
       position: absolute;
@@ -111,13 +103,6 @@
     // ======================
     // FUNCIONES DE RIPPLE
     // ======================
-    /**
-     * Crea una onda (ripple) de color según la intensidad de la nota MIDI.
-     * velocity: valor entre 1 y 127.
-     * - piano (soft)    : velocity <= 63    → color verde
-     * - media (medium)  : 64 <= velocity <= 80  → color azul
-     * - fuerte (loud)   : velocity > 80    → color roja
-     */
     function createColoredRipple(velocity) {
       const size = 20;
       const width = window.innerWidth;
@@ -127,11 +112,11 @@
 
       let color;
       if (velocity <= 63) {
-        color = 'rgba(0, 200, 0, 0.3)';
+        color = 'rgba(0, 200, 0, 0.3)';    // Verde suave para piano
       } else if (velocity <= 80) {
-        color = 'rgba(0, 0, 200, 0.3)';
+        color = 'rgba(0, 0, 200, 0.3)';    // Azul suave para intensidad media
       } else {
-        color = 'rgba(200, 0, 0, 0.3)';
+        color = 'rgba(200, 0, 0, 0.3)';    // Rojo suave para fuerte
       }
 
       const circle = document.createElement("div");
@@ -149,49 +134,48 @@
     }
 
     // ======================
-    // ELEMENTOS DEL DOM
+    // ACCESO AL DOM
     // ======================
-    const statusEl            = document.getElementById("status");
-    const oyentesEl           = document.getElementById("recuentoOyentes");
+    const statusEl      = document.getElementById("status");
+    const oyentesEl     = document.getElementById("recuentoOyentes");
     const midiSelectContainer = document.getElementById("midiSelectContainer");
-    const chatLog             = document.getElementById("chatLog");
-    const chatInput           = document.getElementById("chatInput");
-    const sendChatBtn         = document.getElementById("sendChatBtn");
+    const chatLog       = document.getElementById("chatLog");
+    const chatInput     = document.getElementById("chatInput");
+    const sendChatBtn   = document.getElementById("sendChatBtn");
 
     // ======================
-    // WEBSOCKET
+    // WEB SOCKET
     // ======================
     const ws = new WebSocket("wss://dreamecho.onrender.com");
 
     // ======================
-    // VARIABLES MIDI Y VIRTUAL
+    // VARIABLES MIDI
     // ======================
     let output = null;
-    let modo = null;
+    let modo = null;                  // "midi" o "virtual"
     let synth = null;
     let pedal = false;
-
-    let firstEventTime = null;     // ms (emisor) de la primera nota tras elegir modo
-    let startPlaybackTime = null;  // performance.now() + queueLatency, para MIDI físico
-    let audioStartTime = null;     // Tone.now() + queueLatency, para Virtual
-
+    let firstEventTime = null;        // msg.time de la primera nota tras elegir modo
+    let startPlaybackTime = null;     // performance.now() + queueLatency en primer evento
+    let audioStartTime = null;        // Tone.now() + queueLatency en primer evento virtual
     let queuePos = 0;
-    let queueLatency = 100;
-    let primeraEstadisticaMostrada = false;
-
+    let queueLatency = 0;
     const notasActivas = new Set();
     const notasSostenidas = new Set();
-
-    const username = prompt("¿Cómo quieres que te vean en el chat?", "Oyente") || "Oyente";
+    let primeraEstadisticaMostrada = false;
 
     // ======================
     // CHAT
     // ======================
+    const username = prompt("¿Cómo quieres que te vean en el chat?", "Oyente") || "Oyente";
+
     function appendChat(user, text) {
       const msg = document.createElement("div");
       const time = new Date().toLocaleTimeString();
-      msg.innerHTML = `<small>[${time}]</small> <strong>${user}:</strong> ${text>`;
-      if (user === username) msg.classList.add("chat-mensaje-propio");
+      msg.innerHTML = `<small>[${time}]</small> <strong>${user}:</strong> ${text}`;
+      if (user === username) {
+        msg.classList.add("chat-mensaje-propio");
+      }
       chatLog.appendChild(msg);
       chatLog.scrollTop = chatLog.scrollHeight;
     }
@@ -234,14 +218,12 @@
       }
 
       if (msg.type === "midi") {
-        // Solo procesamos si el usuario ya eligió un modo
-        if (!modo) return;
+        if (!modo) return; // ignorar hasta elegir modo
 
         const [st, note, velocity] = msg.data;
         const command = st & 0xf0;
         const eventTime = msg.time;
 
-        // ── Si es la primera nota tras seleccionar modo, fijamos las referencias ──
         if (firstEventTime === null) {
           firstEventTime = eventTime;
           if (modo === "virtual") {
@@ -251,13 +233,12 @@
           }
         }
 
-        // ── Programamos el mensaje MIDI según modo ──
         scheduleMidi(msg);
       }
     };
 
     // ======================
-    // FUNCION PARA PROGRAMAR CADA MENSAJE MIDI
+    // PROGRAMACIÓN DE NOTAS
     // ======================
     function scheduleMidi(msg) {
       const [st, note, velocity] = msg.data;
@@ -267,7 +248,12 @@
       const relative = eventTime - firstEventTime;
       const extra = queueLatency;
 
-      // ── MODO MIDI FÍSICO ──
+      // Efecto visual
+      if (command === 0x90 && velocity > 0) {
+        createColoredRipple(velocity);
+      }
+
+      // MODO MIDI FÍSICO
       if (modo === "midi" && output) {
         const delay = Math.max(0, startPlaybackTime + relative - performance.now());
         setTimeout(() => {
@@ -275,22 +261,19 @@
         }, delay);
       }
 
-      // ── MODO VIRTUAL (Tone.js) ──
+      // MODO VIRTUAL (Tone.js)
       if (modo === "virtual" && synth) {
         const freq = Tone.Frequency(note, "midi").toFrequency();
         const timeSec = audioStartTime + relative / 1000;
 
         if (command === 0x90 && velocity > 0) {
-          // Normalizar velocity a [0..1]
+          // Intensidad suave más marcada
           const velNorm = velocity / 127;
-          // Curva cuadrática para que los pianísimos suenen realmente suaves
           const velScaled = Math.pow(velNorm, 2);
           synth.triggerAttack(freq, timeSec, velScaled);
           notasActivas.add(freq);
           notasSostenidas.delete(freq);
-          createColoredRipple(velocity);
         } else if (command === 0x80 || (command === 0x90 && velocity === 0)) {
-          // Nota off
           if (pedal) {
             notasActivas.delete(freq);
             notasSostenidas.add(freq);
@@ -300,7 +283,6 @@
             notasSostenidas.delete(freq);
           }
         } else if (st === 176 && note === 64) {
-          // Sustain pedal (CC64)
           const isDown = velocity >= 64;
           if (isDown) {
             pedal = true;
@@ -323,7 +305,6 @@
     function modoMIDI() {
       modo = "midi";
       statusEl.innerText = "Buscando dispositivos MIDI de salida…";
-      // Reiniciar referencias y estado de pedal
       firstEventTime = null;
       startPlaybackTime = null;
       pedal = false;
@@ -343,7 +324,7 @@
           outputs.forEach((o, i) => {
             const opt = document.createElement("option");
             opt.value = o.id;
-            opt.text = o.name || `MIDI Dispositivo ${i + 1}`;
+            opt.text = o.name || `MIDI Dispositivo ${i+1}`;
             sel.appendChild(opt);
           });
           sel.addEventListener("change", e => {
@@ -372,7 +353,6 @@
     async function modoVirtual() {
       modo = "virtual";
       statusEl.innerText = "Cargando piano virtual…";
-      // Reiniciar referencias y estado de pedal
       firstEventTime = null;
       audioStartTime = null;
       pedal = false;
@@ -382,12 +362,12 @@
       await Tone.start();
       synth = new Tone.Sampler({
         urls: {
-          A0:  "A0.mp3", C1:  "C1.mp3", "D#1":"Ds1.mp3", "F#1":"Fs1.mp3",
-          A1:  "A1.mp3", C2:  "C2.mp3", "D#2":"Ds2.mp3", "F#2":"Fs2.mp3",
-          A2:  "A2.mp3", C3:  "C3.mp3", "D#3":"Ds3.mp3", "F#3":"Fs3.mp3",
-          A3:  "A3.mp3", C4:  "C4.mp3", "D#4":"Ds4.mp3", "F#4":"Fs4.mp3",
-          A4:  "A4.mp3", C5:  "C5.mp3", "D#5":"Ds5.mp3", "F#5":"Fs5.mp3",
-          A5:  "A5.mp3", C6:  "C6.mp3", "D#6":"Ds6.mp3", "F#6":"Fs6.mp3",
+          A0:  "A0.mp3", C1:  "C1.mp3", "D#1":"Ds1.mp3","F#1":"Fs1.mp3",
+          A1:  "A1.mp3", C2:  "C2.mp3","D#2":"Ds2.mp3","F#2":"Fs2.mp3",
+          A2:  "A2.mp3", C3:  "C3.mp3","D#3":"Ds3.mp3","F#3":"Fs3.mp3",
+          A3:  "A3.mp3", C4:  "C4.mp3","D#4":"Ds4.mp3","F#4":"Fs4.mp3",
+          A4:  "A4.mp3", C5:  "C5.mp3","D#5":"Ds5.mp3","F#5":"Fs5.mp3",
+          A5:  "A5.mp3", C6:  "C6.mp3","D#6":"Ds6.mp3","F#6":"Fs6.mp3",
           A7:  "A7.mp3", C8:  "C8.mp3"
         },
         baseUrl: "https://tonejs.github.io/audio/salamander/",
