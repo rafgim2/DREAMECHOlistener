@@ -3,57 +3,64 @@
 <head>
   <meta charset="UTF-8">
   <title>DreamEcho - Oyente</title>
+  <!-- 1) Meta viewport para móviles -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.39/Tone.min.js"></script>
   <style>
     body {
       font-family: sans-serif;
       padding: 1em;
       text-align: center;
-      position: relative;  /* Para posicionar ripples */
-      overflow-x: hidden;  /* Oculta el scroll horizontal */
-      overflow-y: auto;    /* Permite scroll vertical si es necesario */
-      background-color: #d3f4ef; /* Azul claro pastel */
-      margin: 0;                  /* Elimina márgenes por defecto */
-      min-height: 100vh;          /* Asegura que el fondo cubra toda la altura de la ventana */
+      position: relative;   /* Para posicionar ripples */
+      overflow-x: hidden;   /* Oculta scroll horizontal */
+      overflow-y: auto;     /* Permite scroll vertical */
+      background-color: #ADD8E6; /* Azul claro pastel */
+      margin: 0;            /* Elimina márgenes por defecto */
+      min-height: 100vh;
       box-sizing: border-box;
     }
 
+    /* 2) .marco ocupa el 90% del ancho y se centra */
     .marco {
-      border: 5px solid green; /* Marco magenta alrededor del contenido */
-      padding: 1em;               /* Un poco de espacio interno para que no quede pegado al borde */
-      display: inline-block;      /* Ajusta el tamaño solo al contenido */
-      background-color: white;    /* Fondo blanco dentro del marco (opcional) */
+      display: block;
+      width: 90%;
+      max-width: 600px;
+      margin: 1em auto;
+      border: 5px solid magenta; /* Marco magenta */
+      padding: 1em;
+      background-color: white;   /* Fondo blanco interno */
       box-sizing: border-box;
     }
 
     h1 {
-      font-size: 3em;
+      font-size: 2.5em; /* Un poco más pequeño para móviles */
       margin-bottom: 0.2em;
       margin-top: 0;
     }
     #recuentoOyentes {
-      font-size: 1.2em;
+      font-size: 1.1em;
       margin-bottom: 0.5em;
       color: #555;
     }
     button {
       margin: 0.5em;
-      font-size: 0.8em;
-      padding: 1em 2em;
+      font-size: 1em;     /* Ajuste de tamaño para mejor legibilidad */
+      padding: 0.8em 1.5em;
       cursor: pointer;
     }
     #status {
       margin-bottom: 1em;
-      font-size: 1.2em;
+      font-size: 1.1em;
     }
     #midiSelectContainer {
       margin-top: 1em;
     }
     /* Chat */
     #chatLog {
-      width: 90%;
-      max-width: 600px;
-      height: 200px;
+      width: 100%;       /* Ahora ocupa todo el ancho de .marco */
+      max-width: none;   /* Sin límite fijo */
+      height: 180px;     /* Altura ligeramente ajustada */
       margin: 1em auto 0.5em;
       padding: 0.5em;
       border: 1px solid #ccc;
@@ -61,12 +68,14 @@
       text-align: left;
       background: #fafafa;
       border-radius: 0.5em;
+      box-sizing: border-box;
     }
     #chatInput {
       width: 70%;
-      max-width: 500px;
+      max-width: none;
       padding: 0.5em;
       font-size: 1em;
+      box-sizing: border-box;
     }
     #sendChatBtn {
       padding: 0.6em 1em;
@@ -96,6 +105,7 @@
   </style>
 </head>
 <body>
+  <!-- 2) Contenido envuelto en .marco -->
   <div class="marco">
     <h1>DreamEcho - Oyente</h1>
     <p><a href="https://www.youtube.com/@rafgim" target="_blank">© By Rafael Gimeno</a></p>
