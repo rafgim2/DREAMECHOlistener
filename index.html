@@ -6,12 +6,13 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.39/Tone.min.js"></script>
   <style>
     body {
-      font-family: sans-serif;
-      padding: 1em;
-      text-align: center;
-      position: relative; /* Para posicionar ripples */
-      overflow: hidden;   /* Para que las ondas no causen scroll */
-    }
+  font-family: sans-serif;
+  padding: 1em;
+  text-align: center;
+  position: relative;  /* Para posicionar ripples */
+  overflow-x: hidden;  /* Oculta el scroll horizontal */
+  overflow-y: auto;    /* Permite scroll vertical si es necesario */
+}
     h1 {
       font-size: 3em;
       margin-bottom: 0.2em;
@@ -66,7 +67,7 @@
     }
     /* ========= RIPPLE EFFECT ========= */
     .ripple {
-      position: absolute;
+      position: fixed;
       border-radius: 50%;
       transform: scale(0);
       pointer-events: none;
