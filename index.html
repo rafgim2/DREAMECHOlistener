@@ -6,13 +6,18 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.39/Tone.min.js"></script>
   <style>
     body {
-  font-family: sans-serif;
-  padding: 1em;
-  text-align: center;
-  position: relative;  /* Para posicionar ripples */
-  overflow-x: hidden;  /* Oculta el scroll horizontal */
-  overflow-y: auto;    /* Permite scroll vertical si es necesario */
-}
+      font-family: sans-serif;
+      padding: 1em;
+      text-align: center;
+      position: relative;  /* Para posicionar ripples */
+      overflow-x: hidden;  /* Oculta el scroll horizontal */
+      overflow-y: auto;    /* Permite scroll vertical si es necesario */
+      background-color: #ADD8E6; /* Azul claro pastel */
+      border: 5px solid magenta; /* Marco magenta */
+      box-sizing: border-box;     /* Para que el padding no afecte al tamaño total */
+      margin: 0;                  /* Elimina márgenes por defecto */
+      min-height: 100vh;          /* Asegura que el fondo cubra toda la altura de la ventana */
+    }
     h1 {
       font-size: 3em;
       margin-bottom: 0.2em;
