@@ -13,15 +13,23 @@
       overflow-x: hidden;  /* Oculta el scroll horizontal */
       overflow-y: auto;    /* Permite scroll vertical si es necesario */
       background-color: #ADD8E6; /* Azul claro pastel */
-      border: 5px solid magenta; /* Marco magenta */
-      box-sizing: border-box;     /* Para que el padding no afecte al tamaño total */
       margin: 0;                  /* Elimina márgenes por defecto */
       min-height: 100vh;          /* Asegura que el fondo cubra toda la altura de la ventana */
+      box-sizing: border-box;
     }
+
+    .marco {
+      border: 5px solid magenta; /* Marco magenta alrededor del contenido */
+      padding: 1em;               /* Un poco de espacio interno para que no quede pegado al borde */
+      display: inline-block;      /* Ajusta el tamaño solo al contenido */
+      background-color: white;    /* Fondo blanco dentro del marco (opcional) */
+      box-sizing: border-box;
+    }
+
     h1 {
       font-size: 3em;
       margin-bottom: 0.2em;
-      margin-top: 0px;
+      margin-top: 0;
     }
     #recuentoOyentes {
       font-size: 1.2em;
@@ -88,22 +96,24 @@
   </style>
 </head>
 <body>
-  <h1>DreamEcho - Oyente</h1>
-  <p><a href="https://www.youtube.com/@rafgim" target="_blank">© By Rafael Gimeno</a></p>
+  <div class="marco">
+    <h1>DreamEcho - Oyente</h1>
+    <p><a href="https://www.youtube.com/@rafgim" target="_blank">© By Rafael Gimeno</a></p>
 
-  <p id="recuentoOyentes">Oyentes conectados: --</p>
-  <p id="status">Esperando conexión…</p>
+    <p id="recuentoOyentes">Oyentes conectados: --</p>
+    <p id="status">Esperando conexión…</p>
 
-  <button onclick="modoMIDI()">🎹 Usar mi piano digital</button>
-  <button onclick="modoVirtual()">🎧 Escuchar con sonido virtual</button>
+    <button onclick="modoMIDI()">🎹 Usar mi piano digital</button>
+    <button onclick="modoVirtual()">🎧 Escuchar con sonido virtual</button>
 
-  <div id="midiSelectContainer"></div>
+    <div id="midiSelectContainer"></div>
 
-  <!-- Chat -->
-  <div id="chatControles">
-    <div id="chatLog"></div>
-    <input id="chatInput" placeholder="Escribe tu mensaje…" />
-    <button id="sendChatBtn">🗨️ Enviar</button>
+    <!-- Chat -->
+    <div id="chatControles">
+      <div id="chatLog"></div>
+      <input id="chatInput" placeholder="Escribe tu mensaje…" />
+      <button id="sendChatBtn">🗨️ Enviar</button>
+    </div>
   </div>
 
   <script>
